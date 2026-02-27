@@ -2,12 +2,23 @@
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List, Union, Optional, Dict
+from typing import List, Union, Optional, Dict, Any
 
 from app.services import model_service
 
 
-# ============== Request/Response Models ==============
+# ============== Request Models ==============
+
+class EmbeddingRequest(BaseModel):
+    """Embedding request (unified for both endpoints)."""
+    input: Union[str, List[str]]
+    model: str = "bge-m3"
+    batch_size: int = 12
+    max_length: int = 8192
+    input_type: Optional[Dict[str, bool]] = None  # Only used by native endpoint
+
+
+# ============== Response Models ==============
 
 class UsageInfo(BaseModel):
     """Token usage information."""
@@ -15,41 +26,23 @@ class UsageInfo(BaseModel):
     total_tokens: int
 
 
-class EmbeddingRequest(BaseModel):
-    """OpenAI-compatible embedding request."""
-    input: Union[str, List[str]]
-    model: str = "bge-m3"
-    encoding_format: str = "float"
-    dimensions: Optional[int] = None
-    timeout: Optional[float] = None
-    batch_size: int = 12
-    max_length: int = 8192
-
-
-class DenseSparseEmbeddingObject(BaseModel):
-    """Embedding object with dense and sparse vectors."""
-    object: str = "embedding"
+class EmbeddingData(BaseModel):
+    """Embedding data with dense and sparse vectors."""
     index: int
     dense: List[float]
     sparse: Dict[str, float]
 
 
-class DenseSparseEmbeddingResponse(BaseModel):
-    """OpenAI-compatible embedding response with dense and sparse vectors."""
+# OpenAI-compatible response format
+class OpenAIEmbeddingResponse(BaseModel):
+    """OpenAI-compatible embedding response."""
     object: str = "list"
     model: str
-    data: List[DenseSparseEmbeddingObject]
+    data: List[EmbeddingData]
     usage: UsageInfo
 
 
-class BGEEmbeddingRequest(BaseModel):
-    """BGE-M3 native embedding request."""
-    input: Union[str, List[str]]
-    input_type: Optional[Dict[str, bool]] = None
-    batch_size: int = 12
-    max_length: int = 8192
-
-
+# Native BGE-M3 response format
 class BGEEmbeddingResponse(BaseModel):
     """BGE-M3 native embedding response."""
     dense_vecs: Optional[List[List[float]]] = None
@@ -67,41 +60,58 @@ def compute_token_count(texts: List[str], max_length: int = 8192) -> int:
 router = APIRouter(prefix="", tags=["embeddings"])
 
 
-@router.post("/v1/embeddings", response_model=DenseSparseEmbeddingResponse)
-async def create_embeddings(request: EmbeddingRequest):
+async def _encode_texts(texts: List[str], batch_size: int, max_length: int, input_type: Optional[Dict[str, bool]] = None):
+    """Core encoding logic shared by both endpoints."""
+    if model_service.get_model() is None:
+        raise HTTPException(status_code=503, detail="Model not loaded")
+
+    # Determine output types
+    if input_type is None:
+        input_types = {"dense": True, "sparse": True, "colbert": False}
+    else:
+        input_types = input_type
+
+    # Encode
+    output = model_service.encode(
+        texts,
+        batch_size=batch_size,
+        max_length=max_length,
+        return_dense=input_types.get("dense", True),
+        return_sparse=input_types.get("sparse", True),
+        return_colbert=input_types.get("colbert", False)
+    )
+
+    # Convert dense vectors to list
+    dense_vecs = output["dense_vecs"]
+    dense_list = [vec.tolist() if hasattr(vec, 'tolist') else vec for vec in dense_vecs]
+
+    # Get sparse vectors
+    sparse_vecs = output["lexical_weights"]
+
+    return dense_list, sparse_vecs, output.get("colbert_vecs")
+
+
+@router.post("/v1/embeddings", response_model=OpenAIEmbeddingResponse)
+async def create_openai_embeddings(request: EmbeddingRequest):
     """
     OpenAI-compatible embeddings endpoint.
     Returns both dense and sparse vectors.
     """
-    if model_service.get_model() is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
-
     # Normalize input to list
     if isinstance(request.input, str):
         texts = [request.input]
     else:
         texts = request.input
 
-    # Encode with both dense and sparse
-    output = model_service.encode(
-        texts,
-        batch_size=len(texts) if len(texts) < request.batch_size else request.batch_size,
-        max_length=request.max_length,
-        return_dense=True,
-        return_sparse=True,
-        return_colbert=False
-    )
+    batch_size = min(len(texts), request.batch_size) if len(texts) < request.batch_size else request.batch_size
+    dense_vecs, sparse_vecs, _ = await _encode_texts(texts, batch_size, request.max_length, request.input_type)
 
-    dense_vecs = output["dense_vecs"]
-    sparse_vecs = output["lexical_weights"]
-
-    # Build response
+    # Build OpenAI-compatible response
     embeddings = []
     for i, (dense_vec, sparse_vec) in enumerate(zip(dense_vecs, sparse_vecs)):
-        dense_list = dense_vec.tolist() if hasattr(dense_vec, 'tolist') else dense_vec
         embeddings.append(
-            DenseSparseEmbeddingObject(
-                dense=dense_list,
+            EmbeddingData(
+                dense=dense_vec,
                 sparse=sparse_vec,
                 index=i
             )
@@ -109,7 +119,7 @@ async def create_embeddings(request: EmbeddingRequest):
 
     prompt_tokens = compute_token_count(texts)
 
-    return DenseSparseEmbeddingResponse(
+    return OpenAIEmbeddingResponse(
         data=embeddings,
         model=request.model,
         usage=UsageInfo(
@@ -120,53 +130,27 @@ async def create_embeddings(request: EmbeddingRequest):
 
 
 @router.post("/embeddings", response_model=BGEEmbeddingResponse)
-async def create_native_embeddings(request: BGEEmbeddingRequest):
+async def create_native_embeddings(request: EmbeddingRequest):
     """
     Native BGE-M3 embedding endpoint.
-    Supports dense, sparse, and colbert vectors.
+    Returns both dense and sparse vectors.
     """
-    if model_service.get_model() is None:
-        raise HTTPException(status_code=503, detail="Model not loaded")
-
     # Normalize input to list
     if isinstance(request.input, str):
         texts = [request.input]
     else:
         texts = request.input
 
-    # Determine output types
-    if request.input_type is None:
-        input_types = {"dense": True, "sparse": True, "colbert": False}
-    else:
-        input_types = request.input_type
-
-    # Encode
-    output = model_service.encode(
-        texts,
-        batch_size=request.batch_size,
-        max_length=request.max_length,
-        return_dense=input_types.get("dense", True),
-        return_sparse=input_types.get("sparse", True),
-        return_colbert=input_types.get("colbert", False)
-    )
-
-    # Build response
-    response = {}
-
-    if input_types.get("dense", True):
-        dense_vecs = output["dense_vecs"]
-        response["dense_vecs"] = [vec.tolist() if hasattr(vec, 'tolist') else vec for vec in dense_vecs]
-
-    if input_types.get("sparse", True):
-        response["sparse_vecs"] = output["lexical_weights"]
-
-    if input_types.get("colbert", False):
-        response["colbert_vecs"] = output["colbert_vecs"]
+    dense_vecs, sparse_vecs, colbert_vecs = await _encode_texts(texts, request.batch_size, request.max_length, request.input_type)
 
     prompt_tokens = compute_token_count(texts, request.max_length)
-    response["usage"] = {
-        "prompt_tokens": prompt_tokens,
-        "total_tokens": prompt_tokens
-    }
 
-    return response
+    return BGEEmbeddingResponse(
+        dense_vecs=dense_vecs,
+        sparse_vecs=sparse_vecs,
+        colbert_vecs=colbert_vecs,
+        usage=UsageInfo(
+            prompt_tokens=prompt_tokens,
+            total_tokens=prompt_tokens
+        )
+    )
