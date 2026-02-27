@@ -1,0 +1,58 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+local.yaml
+# Virtual environments
+.venv
+cankao/
+nacos-data
+# Logs`
+logs/
+*.log
+nacos-data/
+# Environment variables
+.env
+.env.local
+.env.example
+.env.example.properties
+.env.example.yaml
+.env.example.properties.example
+.env.example.yaml.example
+.env.example.properties.example.example
+.env.example.yaml.example.example
+.env.example.properties.example.example.example
+.env.example.yaml.example.example.example
+.env1
+.env2
+.env3
+.env4
+.env5
+.env6
+.env7
+.env8
+.env9
+.env10
+.env11
+.env12
+.env13
+.env14
+.env15
+.env16
+.env17
+.env18
+.env19
+.env20
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+PROJECT_ANALYSIS.md
+
+.claude
+.idea

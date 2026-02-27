@@ -1,0 +1,26 @@
+[project]
+name = "bge-custom"
+version = "0.1.0"
+description = "BGE-M3 OpenAI-Compatible API Server"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "FlagEmbedding>=1.2.11",
+    "transformers>=4.30.0,<5.0.0",
+    "torch>=2.0.0",
+    "pydantic>=2.0.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.26.0",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
