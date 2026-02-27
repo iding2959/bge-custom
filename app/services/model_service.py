@@ -16,11 +16,13 @@ def get_model() -> Optional[BGEM3FlagModel]:
 def load_model(model_path: str) -> BGEM3FlagModel:
     """Load BGE-M3 model."""
     global model
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Loading BGE-M3 model from {model_path}...")
+    print(f"Using device: {device.upper()}" + (" (FP16 enabled)" if device == "cuda" else ""))
     model = BGEM3FlagModel(
         model_path,
         use_fp16=True,
-        device="cuda" if torch.cuda.is_available() else "cpu"
+        device=device
     )
     print("Model loaded successfully!")
     return model
