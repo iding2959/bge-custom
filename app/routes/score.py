@@ -13,8 +13,8 @@ router = APIRouter(prefix="", tags=["score"])
 @router.post("/score")
 async def compute_scores(request: Dict) -> Dict[str, Any]:
     """
-    Compute similarity scores for text pairs.
-    Supports dense, sparse, and colbert scoring.
+    计算文本对的相似度分数。
+    支持 dense、sparse 和 colbert 评分方式。
     """
     if model_service.get_model() is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
@@ -26,13 +26,13 @@ async def compute_scores(request: Dict) -> Dict[str, Any]:
     if not sentences_1 or not sentences_2:
         raise HTTPException(status_code=400, detail="sentences_1 and sentences_2 are required")
 
-    scores = model_service.compute_score(sentences_1, sentences_2, weights)
+    scores = await model_service.compute_score_async(sentences_1, sentences_2, weights)
     return scores
 
 
 @router.post("/lexical/match")
 async def lexical_match(request: Dict):
-    """Compute lexical matching score between sparse vectors."""
+    """计算稀疏向量之间的词法匹配分数。"""
     if model_service.get_model() is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
@@ -42,13 +42,13 @@ async def lexical_match(request: Dict):
     if not sparse_1 or not sparse_2:
         raise HTTPException(status_code=400, detail="sparse_1 and sparse_2 are required")
 
-    score = model_service.compute_lexical_match(sparse_1, sparse_2)
+    score = await model_service.compute_lexical_match_async(sparse_1, sparse_2)
     return {"score": score}
 
 
 @router.post("/colbert/score")
 async def colbert_score(request: Dict):
-    """Compute ColBERT score between multi-vector representations."""
+    """计算多向量 ColBERT 表示之间的分数。"""
     if model_service.get_model() is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
@@ -58,5 +58,5 @@ async def colbert_score(request: Dict):
     if colbert_1 is None or colbert_2 is None:
         raise HTTPException(status_code=400, detail="colbert_1 and colbert_2 are required")
 
-    score = model_service.colbert_score(colbert_1, colbert_2)
+    score = await model_service.colbert_score_async(colbert_1, colbert_2)
     return {"score": score}

@@ -10,7 +10,7 @@ from app.services import model_service
 from app.routes import embeddings, score, models
 
 
-# ============== CLI Arguments (for GPustack deployment) ==============
+# ============== CLI 参数（用于 GPustack 部署） ==============
 def parse_args():
     """Parse command line arguments for GPustack deployment."""
     parser = argparse.ArgumentParser(description="BGE-M3 API Server")
@@ -49,20 +49,22 @@ def parse_args():
 
 args = parse_args()
 
-# Configuration (CLI args > env var > default)
+# 配置（CLI 参数 > 环境变量 > 默认值）
 MODEL_PATH = args.model_path or os.getenv("MODEL_PATH", "/home/iding/models/bge-m3")
 PORT = args.port or int(os.getenv("PORT", "8101"))
 HOST = args.host if not args.worker_ip else args.worker_ip
 MODEL_NAME = args.model_name
 
 
-# ============== FastAPI App ==============
+# ============== FastAPI 应用 ==============
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load model on startup, unload on shutdown."""
     model_service.load_model(MODEL_PATH)
+    model_service.init_executor()
     yield
+    model_service.shutdown_executor()
     model_service.unload_model()
 
 
@@ -73,7 +75,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS 中间件
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -82,13 +84,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routes
+# 注册路由
 app.include_router(embeddings.router)
 app.include_router(score.router)
 app.include_router(models.router)
 
 
-# ============== Main ==============
+# ============== 入口 ==============
 
 if __name__ == "__main__":
     import uvicorn
