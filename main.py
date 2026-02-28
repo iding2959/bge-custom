@@ -44,6 +44,12 @@ def parse_args():
         default="bge-m3",
         help="Model name (default: bge-m3)"
     )
+    parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=None,
+        help="Max concurrent inference requests (overrides MAX_CONCURRENT env var, default: 4)"
+    )
     return parser.parse_args()
 
 
@@ -54,15 +60,16 @@ MODEL_PATH = args.model_path or os.getenv("MODEL_PATH", "/home/iding/models/bge-
 PORT = args.port or int(os.getenv("PORT", "8101"))
 HOST = args.host if not args.worker_ip else args.worker_ip
 MODEL_NAME = args.model_name
+MAX_CONCURRENT = args.max_concurrent or int(os.getenv("MAX_CONCURRENT", "4"))
 
 
 # ============== FastAPI 应用 ==============
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load model on startup, unload on shutdown."""
+    """启动时加载模型，关闭时卸载模型。"""
     model_service.load_model(MODEL_PATH)
-    model_service.init_executor()
+    model_service.init_executor(max_workers=MAX_CONCURRENT)
     yield
     model_service.shutdown_executor()
     model_service.unload_model()
