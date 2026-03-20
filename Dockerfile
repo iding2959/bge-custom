@@ -31,6 +31,6 @@ EXPOSE 8000
 ENV PATH="/app/.venv/bin:$PATH"
 
 # 启动命令：支持 GPustack 部署参数
-# 使用方式: python main.py --model-path {model_path} --port {port} --worker-ip {worker_ip} --model-name {model_name}
+# 使用方式: python main.py --model-path {model_path} --port {port} --worker-ip {worker_ip} --model-name {model_name} --max-concurrent 128
 # 其他配置通过环境变量传入
 CMD ["python", "main.py", "--host", "0.0.0.0"]

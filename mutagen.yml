@@ -1,0 +1,22 @@
+sync:
+  defaults:
+    flushOnCreate: true
+    # 冲突解决模式：以最新修改为准
+    mode: "two-way-resolved"
+    ignore:
+      vcs: true # 忽略 .git
+      paths:
+        - "node_modules"
+        - "__pycache__"
+        - ".venv"
+        - ".DS_Store"
+        - "data/*.index" # 针对你的 RAG 索引文件，建议本地生成，不参与同步
+        - "logs/"
+        - ".venv/"
+        - ".claude/"
+  
+  # 同步会话名称
+  bge-m3-custom:
+    alpha: "." # WSL2 本地当前目录
+    # 使用你在 ~/.ssh/config 中配置的别名
+    beta: "sf202:/home/safone/project/bge-m3-custom"
