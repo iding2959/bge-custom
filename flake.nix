@@ -32,7 +32,7 @@
 
             if [ -f "pyproject.toml" ]; then
               echo "Syncing dependencies..."
-              uv sync --all-extras 2>/dev/null || true
+              uv sync --all-extras
             fi
 
             echo "Python environment ready: $(python --version)"
