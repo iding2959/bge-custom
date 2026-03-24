@@ -57,3 +57,7 @@ PROJECT_ANALYSIS.md
 .claude
 .idea
 mutagen.yml.lock
+
+# Nix
+.direnv/
+result
