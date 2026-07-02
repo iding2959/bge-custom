@@ -9,6 +9,8 @@ import torch
 from FlagEmbedding import BGEM3FlagModel
 from typing import List, Dict, Any
 
+from app.log import logger
+
 # 全局模型实例
 model: Optional[BGEM3FlagModel] = None
 
@@ -23,7 +25,7 @@ def init_executor(max_workers: int = None):
     max_workers = max_workers or int(os.getenv("MAX_CONCURRENT", "4"))
     _executor = ThreadPoolExecutor(max_workers=max_workers)
     _semaphore = asyncio.Semaphore(max_workers)
-    print(f"线程池已初始化，工作线程数: {max_workers}")
+    logger.info(f"线程池已初始化，工作线程数: {max_workers}")
 
 
 def shutdown_executor():
@@ -31,7 +33,7 @@ def shutdown_executor():
     global _executor
     if _executor:
         _executor.shutdown(wait=True)
-        print("线程池已关闭")
+        logger.info("线程池已关闭")
 
 
 def get_semaphore() -> Optional[asyncio.Semaphore]:
@@ -141,14 +143,14 @@ def load_model(model_path: str) -> BGEM3FlagModel:
     """Load BGE-M3 model."""
     global model
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Loading BGE-M3 model from {model_path}...")
-    print(f"Using device: {device.upper()}" + (" (FP16 enabled)" if device == "cuda" else ""))
+    logger.info(f"Loading BGE-M3 model from {model_path}...")
+    logger.info(f"Using device: {device.upper()}" + (" (FP16 enabled)" if device == "cuda" else ""))
     model = BGEM3FlagModel(
         model_path,
         use_fp16=True,
         device=device
     )
-    print("Model loaded successfully!")
+    logger.info("Model loaded successfully!")
     return model
 
 
@@ -159,7 +161,7 @@ def unload_model():
         del model
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        print("Model unloaded.")
+        logger.info("Model unloaded.")
 
 
 def encode(

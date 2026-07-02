@@ -3,7 +3,7 @@ name = "bge-custom"
 version = "0.1.0"
 description = "BGE-M3 OpenAI-Compatible API Server"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "uvicorn[standard]>=0.27.0",
     "FlagEmbedding>=1.4.0",

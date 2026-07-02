@@ -11,8 +11,8 @@ RUN apt-get update && apt-get install -y \
 
 
 
-# 2️⃣ 安装 uv（官方推荐方式）
-RUN pip install --no-cache-dir uv
+# 2️⃣ 安装 uv 直接从官方镜像复制 uv 二进制文件
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 

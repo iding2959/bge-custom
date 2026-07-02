@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.services import model_service
 from app.routes import embeddings, score, models
+from app.log import setup_logging
 
 
 # ============== CLI 参数（用于 GPustack 部署） ==============
@@ -74,6 +75,9 @@ PORT = args.port or int(os.getenv("PORT", "8101"))
 HOST = args.host if not args.worker_ip else args.worker_ip
 MODEL_NAME = args.model_name
 MAX_CONCURRENT = args.max_concurrent or int(os.getenv("MAX_CONCURRENT", "4"))
+
+# 初始化日志系统
+setup_logging()
 
 
 # ============== FastAPI 应用 ==============
