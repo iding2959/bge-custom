@@ -65,6 +65,11 @@ async def _encode_texts(texts: List[str], batch_size: int, max_length: int, inpu
     if model_service.get_model() is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
+    # 过滤空字符串，防止 tokenizer.pad() 在旧版 transformers 上崩溃
+    texts = [t for t in texts if t and t.strip()]
+    if not texts:
+        raise HTTPException(status_code=400, detail="Input must not be empty or contain only whitespace")
+
     # 确定输出类型
     if input_type is None:
         input_types = {"dense": True, "sparse": True, "colbert": False}

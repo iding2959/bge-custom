@@ -1,6 +1,19 @@
 """BGE-M3 API Server - Entry Point."""
 
 import os
+os.environ["TQDM_DISABLE"] = "1"
+
+# 在生产环境彻底禁用 tqdm 进度条输出
+def _patch_tqdm():
+    import tqdm
+    _real_init = tqdm.tqdm.__init__
+    def _noop_init(self, *args, **kwargs):
+        kwargs["disable"] = True
+        _real_init(self, *args, **kwargs)
+    tqdm.tqdm.__init__ = _noop_init
+
+_patch_tqdm()
+
 import argparse
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -56,7 +69,7 @@ def parse_args():
 args = parse_args()
 
 # 配置（CLI 参数 > 环境变量 > 默认值）
-MODEL_PATH = args.model_path or os.getenv("MODEL_PATH", "/home/iding/models/bge-m3")
+MODEL_PATH = args.model_path or os.getenv("MODEL_PATH", "/mnt/models/bge-m3")
 PORT = args.port or int(os.getenv("PORT", "8101"))
 HOST = args.host if not args.worker_ip else args.worker_ip
 MODEL_NAME = args.model_name
@@ -91,6 +104,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 请求日志中间件：记录所有非排除路径的请求/响应信息
+from sololib.middleware import RequestLogMiddleware
+
+app.add_middleware(
+    RequestLogMiddleware,
+    exclude_paths={
+        "/api/fk/content/health",
+        "/actuator/health",
+        "/actuator/info",
+        "/",
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+        "/favicon.ico",
+
+    },
+    exclude_path_prefixes={
+        "/api/fk/content/admin",
+        "/.well-known",
+        "/dev-server",
+    },
+    log_request_body=True,
+    log_response_body=True,
+)
+
 # 注册路由
 app.include_router(embeddings.router)
 app.include_router(score.router)
@@ -101,4 +139,4 @@ app.include_router(models.router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host=HOST, port=PORT)
+    uvicorn.run(app, host=HOST, port=PORT, access_log=False)
