@@ -1,0 +1,29 @@
+services:
+  bge-m3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bge-m3:v1.1.0     
+    container_name: bge-m3
+    ports:
+      - "${PORT:-8101}:8101"
+    environment: 
+      - TZ=Asia/Shanghai #
+    volumes:
+      - ${MODEL_PATH:-/mnt/models/bge-m3}:${MODEL_PATH:-/mnt/models/bge-m3}:ro
+    command: >
+      python main.py
+      --host 0.0.0.0
+      --model-path ${MODEL_PATH:-/mnt/models/bge-m3}
+      --port ${PORT:-8101}
+      --model-name ${MODEL_NAME:-bge-m3}
+      --max-concurrent ${MAX_CONCURRENT:-128}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${NVIDIA_VISIBLE_DEVICES:-0}"]
+              # device_ids: ${NVIDIA_VISIBLE_DEVICES:-[0]}
+              capabilities: [gpu]
+    restart: unless-stopped
