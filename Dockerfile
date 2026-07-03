@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 
 
 # 2️⃣ 安装 uv 直接从官方镜像复制 uv 二进制文件
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+COPY --from=docker.1ms.run/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
