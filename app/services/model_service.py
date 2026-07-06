@@ -11,6 +11,12 @@ from typing import List, Dict, Any
 
 from app.log import logger
 
+# ============== 默认配置常量 ==============
+DEFAULT_BATCH_SIZE = 12
+DEFAULT_MAX_LENGTH = 8192
+DEFAULT_MAX_PASSAGE_LENGTH = 512  # /score 端点 passage 最大 token 数（库默认 512）
+DEFAULT_SCORE_WEIGHTS = [0.4, 0.2, 0.4]  # [dense, sparse, colbert]
+
 # 全局模型实例
 model: Optional[BGEM3FlagModel] = None
 
@@ -43,8 +49,8 @@ def get_semaphore() -> Optional[asyncio.Semaphore]:
 
 async def encode_async(
     texts: List[str],
-    batch_size: int = 12,
-    max_length: int = 8192,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+    max_length: int = DEFAULT_MAX_LENGTH,
     return_dense: bool = True,
     return_sparse: bool = True,
     return_colbert: bool = False
@@ -143,11 +149,12 @@ def load_model(model_path: str) -> BGEM3FlagModel:
     """Load BGE-M3 model."""
     global model
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    use_fp16 = device == "cuda"
     logger.info(f"Loading BGE-M3 model from {model_path}...")
-    logger.info(f"Using device: {device.upper()}" + (" (FP16 enabled)" if device == "cuda" else ""))
+    logger.info(f"Using device: {device.upper()}" + (" (FP16 enabled)" if use_fp16 else ""))
     model = BGEM3FlagModel(
         model_path,
-        use_fp16=True,
+        use_fp16=use_fp16,
         device=device
     )
     logger.info("Model loaded successfully!")
@@ -166,8 +173,8 @@ def unload_model():
 
 def encode(
     texts: List[str],
-    batch_size: int = 12,
-    max_length: int = 8192,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+    max_length: int = DEFAULT_MAX_LENGTH,
     return_dense: bool = True,
     return_sparse: bool = True,
     return_colbert: bool = False
@@ -209,8 +216,8 @@ def compute_score(
     Compute similarity scores for text pairs.
 
     Args:
-        sentences_1: First list of sentences
-        sentences_2: Second list of sentences
+        sentences_1: First list of sentences (paired with sentences_2 by index)
+        sentences_2: Second list of sentences (paired with sentences_1 by index)
         weights: [dense, sparse, colbert] weights
 
     Returns:
@@ -220,13 +227,14 @@ def compute_score(
         raise RuntimeError("Model not loaded")
 
     if weights is None:
-        weights = [0.4, 0.2, 0.4]
+        weights = DEFAULT_SCORE_WEIGHTS
 
-    sentence_pairs = [[i, j] for i in sentences_1 for j in sentences_2]
+    # 按索引配对，而非笛卡尔积
+    sentence_pairs = list(zip(sentences_1, sentences_2))
 
     scores = model.compute_score(
         sentence_pairs,
-        max_passage_length=128,
+        max_passage_length=DEFAULT_MAX_PASSAGE_LENGTH,
         weights_for_different_modes=weights
     )
     return scores

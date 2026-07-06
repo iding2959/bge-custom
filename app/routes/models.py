@@ -11,9 +11,10 @@ router = APIRouter(prefix="", tags=["models"])
 @router.get("/")
 async def root():
     """Root endpoint."""
+    current_model = model_service.get_model()
     return {
         "message": "BGE-M3 OpenAI-Compatible API",
-        "model": f"BAAI/{model_service.get_model().__class__.__name__}",
+        "model": f"BAAI/{current_model.__class__.__name__}" if current_model is not None else None,
         "endpoints": {
             "/v1/embeddings": "OpenAI-compatible embeddings endpoint",
             "/embeddings": "Native BGE-M3 embeddings endpoint"
